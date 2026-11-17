@@ -76,5 +76,5 @@ export function iniciales(name: string = ''): string {
 export const PLACEHOLDER_PET =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"><rect width="400" height="400" fill="#EAF3EE"/><g fill="#5BA48A"><ellipse cx="200" cy="252" rx="62" ry="50"/><ellipse cx="146" cy="186" rx="26" ry="34"/><ellipse cx="254" cy="186" rx="26" ry="34"/><ellipse cx="112" cy="248" rx="22" ry="28"/><ellipse cx="288" cy="248" rx="22" rx="28"/></g></svg>`
+    `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"><rect width="400" height="400" fill="#EAF3EE"/><g fill="#5BA48A"><ellipse cx="200" cy="252" rx="62" ry="50"/><ellipse cx="146" cy="186" rx="26" ry="34"/><ellipse cx="254" cy="186" rx="26" ry="34"/><ellipse cx="112" cy="248" rx="22" ry="28"/><ellipse cx="288" cy="248" rx="22" ry="28"/></g></svg>`
   );

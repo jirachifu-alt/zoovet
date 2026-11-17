@@ -23,9 +23,10 @@ public class PetController {
     public ResponseEntity<List<PetDto>> getPets(
             @AuthenticationPrincipal User currentUser,
             @RequestParam(required = false) Long ownerId,
-            @RequestParam(required = false) String search
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Boolean livestock
     ) {
-        return ResponseEntity.ok(petService.getPets(currentUser, ownerId, search));
+        return ResponseEntity.ok(petService.getPets(currentUser, ownerId, search, livestock));
     }
 
     @GetMapping("/{id}")

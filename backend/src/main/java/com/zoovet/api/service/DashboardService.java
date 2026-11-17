@@ -28,7 +28,7 @@ public class DashboardService {
     public DashboardStatsDto getStats(User currentUser) {
         if (currentUser.getRole() == Role.ROLE_CLIENTE) {
             // Client personalized stats
-            List<PetDto> clientPets = petService.getPets(currentUser, null, null);
+            List<PetDto> clientPets = petService.getPets(currentUser, null, null, false);
             List<AppointmentDto> clientAppointments = appointmentService.getAppointments(currentUser);
 
             long pending = clientAppointments.stream().filter(a -> a.getStatus() == AppointmentStatus.PENDIENTE).count();

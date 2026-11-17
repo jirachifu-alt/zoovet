@@ -23,6 +23,10 @@ export class UserService {
     return this.http.get<User[]>(`${this.apiUrl}/clients`);
   }
 
+  getZootechnicians(): Observable<User[]> {
+    return this.http.get<User[]>(`${this.apiUrl}/zootechnicians`);
+  }
+
   getById(id: number): Observable<User> {
     return this.http.get<User>(`${this.apiUrl}/${id}`);
   }

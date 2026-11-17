@@ -24,12 +24,14 @@ interface NavSection {
 const ROLE_LABEL: Record<string, string> = {
   ROLE_ADMIN: 'Administrador',
   ROLE_VETERINARIO: 'Veterinario',
+  ROLE_ZOOTECNICO: 'Zootécnico',
   ROLE_CLIENTE: 'Cliente',
 };
 
 const TITLES: Record<string, string> = {
   '/dashboard': 'Panel general',
   '/mascotas': 'Pacientes',
+  '/zootecnia': 'Zootecnia',
   '/citas': 'Citas',
   '/historial': 'Historial clínico',
   '/vacunas': 'Vacunación',
@@ -233,8 +235,19 @@ export class LayoutComponent {
       section: 'General',
       items: [
         { to: '/dashboard', label: 'Panel', icon: 'dashboard' },
-        { to: '/mascotas', label: 'Mascotas', icon: 'paw' },
+        { to: '/mascotas', label: 'Pacientes', icon: 'paw' },
         { to: '/citas', label: 'Citas', icon: 'calendar-days' },
+      ],
+    },
+    {
+      section: 'Producción animal',
+      items: [
+        {
+          to: '/zootecnia',
+          label: 'Zootecnia',
+          icon: 'wheat',
+          roles: ['ROLE_ADMIN', 'ROLE_VETERINARIO', 'ROLE_ZOOTECNICO'],
+        },
       ],
     },
     {

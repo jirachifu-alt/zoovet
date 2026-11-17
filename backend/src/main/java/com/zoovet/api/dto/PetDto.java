@@ -22,6 +22,9 @@ public class PetDto {
     private String species;
 
     private String breed;
+    private String productionType;
+    private String farmName;
+    private String recordCode;
     private String gender;
     private LocalDate birthDate;
     private Double weightKg;

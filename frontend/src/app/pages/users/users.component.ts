@@ -19,6 +19,7 @@ interface RoleMeta {
 const ROLE_META_MAP: Record<Role, RoleMeta> = {
   ROLE_ADMIN: { label: 'Administrador', icon: 'shield-check', cls: 'role-admin' },
   ROLE_VETERINARIO: { label: 'Veterinario', icon: 'stethoscope', cls: 'role-vet' },
+  ROLE_ZOOTECNICO: { label: 'Zootécnico', icon: 'wheat', cls: 'role-zootechnician' },
   ROLE_CLIENTE: { label: 'Cliente', icon: 'user', cls: 'role-client' },
 };
 
@@ -199,6 +200,7 @@ const EMPTY_USER = {
               [attr.aria-invalid]="isInvalid('role')"
             >
               <option value="ROLE_CLIENTE">Cliente</option>
+              <option value="ROLE_ZOOTECNICO">Zootécnico</option>
               <option value="ROLE_VETERINARIO">Veterinario</option>
               <option value="ROLE_ADMIN">Administrador</option>
             </select>
@@ -261,6 +263,7 @@ export class UsersComponent implements OnInit {
     { key: 'todos', label: 'Todos' },
     { key: 'ROLE_ADMIN', label: 'Administradores' },
     { key: 'ROLE_VETERINARIO', label: 'Veterinarios' },
+    { key: 'ROLE_ZOOTECNICO', label: 'Zootécnicos' },
     { key: 'ROLE_CLIENTE', label: 'Clientes' },
   ];
   search: string = '';

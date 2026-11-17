@@ -92,6 +92,9 @@ CREATE TABLE `pets` (
   `notes` varchar(1000) DEFAULT NULL,
   `photo_url` varchar(500) DEFAULT NULL,
   `species` varchar(50) NOT NULL,
+  `production_type` varchar(50) DEFAULT NULL,
+  `farm_name` varchar(120) DEFAULT NULL,
+  `record_code` varchar(60) DEFAULT NULL,
   `weight_kg` double DEFAULT NULL,
   `owner_id` bigint NOT NULL,
   PRIMARY KEY (`id`),
@@ -115,7 +118,7 @@ CREATE TABLE `users` (
   `full_name` varchar(150) NOT NULL,
   `password` varchar(255) NOT NULL,
   `phone` varchar(20) DEFAULT NULL,
-  `role` enum('ROLE_ADMIN','ROLE_CLIENTE','ROLE_VETERINARIO') NOT NULL,
+  `role` enum('ROLE_ADMIN','ROLE_CLIENTE','ROLE_VETERINARIO','ROLE_ZOOTECNICO') NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `UK6dotkott2kjsp8vw4d0m25fb7` (`email`)
 ) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

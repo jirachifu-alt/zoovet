@@ -323,9 +323,10 @@ export class AuthComponent implements OnInit {
 
   heroImage = 'https://images.unsplash.com/photo-1628009368231-7bb7cfcb0def?auto=format&fit=crop&w=1400&q=80';
 
-  demoAccounts: { role: 'ADMIN' | 'VETERINARIO' | 'CLIENTE'; label: string }[] = [
+  demoAccounts: { role: 'ADMIN' | 'VETERINARIO' | 'ZOOTECNICO' | 'CLIENTE'; label: string }[] = [
     { role: 'ADMIN', label: 'Admin' },
     { role: 'VETERINARIO', label: 'Veterinario' },
+    { role: 'ZOOTECNICO', label: 'Zootécnico' },
     { role: 'CLIENTE', label: 'Cliente' },
   ];
 
@@ -412,7 +413,7 @@ export class AuthComponent implements OnInit {
     });
   }
 
-  handleQuickLogin(role: 'ADMIN' | 'VETERINARIO' | 'CLIENTE'): void {
+  handleQuickLogin(role: 'ADMIN' | 'VETERINARIO' | 'ZOOTECNICO' | 'CLIENTE'): void {
     this.loading = true;
     this.error = null;
     this.authService.quickLogin(role).subscribe({

@@ -33,6 +33,11 @@ public class UserController {
         return ResponseEntity.ok(userService.getClients());
     }
 
+    @GetMapping("/zootechnicians")
+    public ResponseEntity<List<UserDto>> getZootechnicians() {
+        return ResponseEntity.ok(userService.getZootechnicians());
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<UserDto> getUserById(@PathVariable Long id) {
         return ResponseEntity.ok(userService.getUserById(id));

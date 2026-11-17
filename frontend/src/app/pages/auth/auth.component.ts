@@ -1,15 +1,18 @@
 import { Component, Input, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { DatabaseService } from '../../core/services/database.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { FieldErrorComponent } from '../../shared/components/field-error/field-error.component';
+import { apiErrorMessage } from '../../core/utils/api-error';
+import { passwordsMatchValidator } from '../../core/utils/validators';
 
 @Component({
   selector: 'app-auth',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent],
+  imports: [CommonModule, ReactiveFormsModule, IconComponent, FieldErrorComponent],
   template: `
     <div class="auth-layout">
       <!-- Panel visual -->
@@ -101,26 +104,28 @@ import { IconComponent } from '../../shared/components/icon/icon.component';
           </div>
 
           <!-- Formulario Login -->
-          <form *ngIf="isLogin" (ngSubmit)="handleLogin()">
+          <form *ngIf="isLogin" [formGroup]="loginForm" (ngSubmit)="handleLogin()" novalidate>
             <div class="form-group">
-              <label class="form-label">Correo electrónico</label>
+              <label class="form-label" for="login-email">Correo electrónico</label>
               <div class="input-icon">
                 <app-icon name="mail" [size]="16"></app-icon>
                 <input
+                  id="login-email"
                   class="form-input"
                   type="email"
-                  name="email"
+                  formControlName="email"
                   placeholder="tu@correo.com"
                   autocomplete="username"
-                  [(ngModel)]="loginForm.email"
-                  required
+                  [class.is-invalid]="isInvalid(loginForm, 'email')"
+                  [attr.aria-invalid]="isInvalid(loginForm, 'email')"
                 />
               </div>
+              <app-field-error [control]="loginForm.controls.email" label="El correo"></app-field-error>
             </div>
 
             <div class="form-group">
               <div class="form-label-row">
-                <label class="form-label">Contraseña</label>
+                <label class="form-label" for="login-password">Contraseña</label>
                 <button
                   type="button"
                   class="link"
@@ -132,23 +137,26 @@ import { IconComponent } from '../../shared/components/icon/icon.component';
               <div class="input-icon">
                 <app-icon name="lock" [size]="16"></app-icon>
                 <input
+                  id="login-password"
                   class="form-input"
                   [type]="showPassword ? 'text' : 'password'"
-                  name="password"
+                  formControlName="password"
                   placeholder="••••••••"
                   autocomplete="current-password"
-                  [(ngModel)]="loginForm.password"
-                  required
+                  [class.is-invalid]="isInvalid(loginForm, 'password')"
+                  [attr.aria-invalid]="isInvalid(loginForm, 'password')"
                 />
                 <button
                   type="button"
                   class="input-action"
                   (click)="showPassword = !showPassword"
                   tabindex="-1"
+                  aria-label="Mostrar u ocultar contraseña"
                 >
                   <app-icon [name]="showPassword ? 'eye-off' : 'eye'" [size]="16"></app-icon>
                 </button>
               </div>
+              <app-field-error [control]="loginForm.controls.password" label="La contraseña"></app-field-error>
             </div>
 
             <button class="btn btn-primary btn-block" type="submit" [disabled]="loading">
@@ -205,63 +213,80 @@ import { IconComponent } from '../../shared/components/icon/icon.component';
           </form>
 
           <!-- Formulario Registro -->
-          <form *ngIf="!isLogin" (ngSubmit)="handleRegister()">
+          <form *ngIf="!isLogin" [formGroup]="regForm" (ngSubmit)="handleRegister()" novalidate>
             <div class="form-group">
-              <label class="form-label">Nombre completo</label>
+              <label class="form-label" for="reg-fullname">Nombre completo</label>
               <input
+                id="reg-fullname"
                 class="form-input"
-                name="fullName"
+                formControlName="fullName"
                 placeholder="Ej. Ana Morales"
-                [(ngModel)]="regForm.fullName"
-                required
+                autocomplete="name"
+                [class.is-invalid]="isInvalid(regForm, 'fullName')"
+                [attr.aria-invalid]="isInvalid(regForm, 'fullName')"
               />
+              <app-field-error [control]="regForm.controls.fullName" label="El nombre"></app-field-error>
             </div>
 
             <div class="field-row">
               <div class="form-group">
-                <label class="form-label">Correo electrónico</label>
+                <label class="form-label" for="reg-email">Correo electrónico</label>
                 <input
+                  id="reg-email"
                   class="form-input"
                   type="email"
-                  name="regEmail"
+                  formControlName="email"
                   placeholder="tu@correo.com"
-                  [(ngModel)]="regForm.email"
-                  required
+                  autocomplete="email"
+                  [class.is-invalid]="isInvalid(regForm, 'email')"
+                  [attr.aria-invalid]="isInvalid(regForm, 'email')"
                 />
+                <app-field-error [control]="regForm.controls.email" label="El correo"></app-field-error>
               </div>
               <div class="form-group">
-                <label class="form-label">Teléfono</label>
+                <label class="form-label" for="reg-phone">Teléfono</label>
                 <input
+                  id="reg-phone"
                   class="form-input"
-                  name="phone"
+                  type="tel"
+                  formControlName="phone"
                   placeholder="+51 999 888 777"
-                  [(ngModel)]="regForm.phone"
+                  autocomplete="tel"
+                  [class.is-invalid]="isInvalid(regForm, 'phone')"
+                  [attr.aria-invalid]="isInvalid(regForm, 'phone')"
                 />
+                <app-field-error [control]="regForm.controls.phone" label="El teléfono"></app-field-error>
               </div>
             </div>
 
             <div class="field-row">
               <div class="form-group">
-                <label class="form-label">Contraseña</label>
+                <label class="form-label" for="reg-password">Contraseña</label>
                 <input
+                  id="reg-password"
                   class="form-input"
                   type="password"
-                  name="regPassword"
+                  formControlName="password"
                   placeholder="Mínimo 6 caracteres"
-                  [(ngModel)]="regForm.password"
-                  required
+                  autocomplete="new-password"
+                  [class.is-invalid]="isInvalid(regForm, 'password')"
+                  [attr.aria-invalid]="isInvalid(regForm, 'password')"
                 />
+                <app-field-error [control]="regForm.controls.password" label="La contraseña"></app-field-error>
               </div>
               <div class="form-group">
-                <label class="form-label">Confirmar contraseña</label>
+                <label class="form-label" for="reg-confirm">Confirmar contraseña</label>
                 <input
+                  id="reg-confirm"
                   class="form-input"
                   type="password"
-                  name="confirmPassword"
+                  formControlName="confirm"
                   placeholder="Repite tu contraseña"
-                  [(ngModel)]="regForm.confirm"
-                  required
+                  autocomplete="new-password"
+                  [class.is-invalid]="isInvalid(regForm, 'confirm')"
+                  [attr.aria-invalid]="isInvalid(regForm, 'confirm')"
                 />
+                <app-field-error [control]="regForm.controls.confirm" label="La confirmación"></app-field-error>
               </div>
             </div>
 
@@ -286,6 +311,7 @@ export class AuthComponent implements OnInit {
   private databaseService = inject(DatabaseService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+  private fb = inject(FormBuilder);
 
   @Input() mode: 'login' | 'registro' = 'login';
 
@@ -303,18 +329,33 @@ export class AuthComponent implements OnInit {
     { role: 'CLIENTE', label: 'Cliente' },
   ];
 
-  loginForm = { email: '', password: '' };
-  regForm = {
-    fullName: '',
-    email: '',
-    phone: '',
-    password: '',
-    confirm: ''
-  };
+  loginForm = this.fb.nonNullable.group({
+    email: ['', [Validators.required, Validators.email]],
+    password: ['', [Validators.required, Validators.minLength(6)]]
+  });
+
+  regForm = this.fb.nonNullable.group({
+    fullName: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(100)]],
+    email: ['', [Validators.required, Validators.email]],
+    phone: ['', [Validators.pattern(/^[+0-9 ()-]{6,20}$/)]],
+    password: ['', [Validators.required, Validators.minLength(6)]],
+    confirm: ['', [Validators.required, passwordsMatchValidator()]]
+  });
+
+  constructor() {
+    this.regForm.controls.password.valueChanges.subscribe(() => {
+      this.regForm.controls.confirm.updateValueAndValidity({ emitEvent: false });
+    });
+  }
 
   ngOnInit(): void {
     const path = this.route.snapshot.routeConfig?.path;
     this.isLogin = path !== 'registro' && this.mode !== 'registro';
+  }
+
+  isInvalid(form: FormGroup, controlName: string): boolean {
+    const control = form.get(controlName);
+    return !!control && control.invalid && (control.dirty || control.touched);
   }
 
   setMode(mode: 'login' | 'registro'): void {
@@ -329,33 +370,36 @@ export class AuthComponent implements OnInit {
   }
 
   handleLogin(): void {
-    this.loading = true;
     this.error = null;
-    this.authService.login(this.loginForm).subscribe({
+    this.loginForm.markAllAsTouched();
+    if (this.loginForm.invalid) {
+      this.error = 'Revisa los campos marcados antes de continuar.';
+      return;
+    }
+
+    this.loading = true;
+    this.authService.login(this.loginForm.getRawValue()).subscribe({
       next: () => {
         this.loading = false;
         this.router.navigate(['/dashboard'], { replaceUrl: true });
       },
       error: (err) => {
         this.loading = false;
-        this.error = err?.error?.error || err?.error || err?.message || 'Error en inicio de sesión';
+        this.error = apiErrorMessage(err, 'Error en inicio de sesión');
       }
     });
   }
 
   handleRegister(): void {
     this.error = null;
-    if (this.regForm.password.length < 6) {
-      this.error = 'La contraseña debe tener al menos 6 caracteres.';
-      return;
-    }
-    if (this.regForm.password !== this.regForm.confirm) {
-      this.error = 'Las contraseñas no coinciden.';
+    this.regForm.markAllAsTouched();
+    if (this.regForm.invalid) {
+      this.error = 'Revisa los campos marcados antes de continuar.';
       return;
     }
 
     this.loading = true;
-    const { confirm, ...payload } = this.regForm;
+    const { confirm, ...payload } = this.regForm.getRawValue();
     this.authService.register(payload).subscribe({
       next: () => {
         this.loading = false;
@@ -363,7 +407,7 @@ export class AuthComponent implements OnInit {
       },
       error: (err) => {
         this.loading = false;
-        this.error = err?.error?.error || err?.error || err?.message || 'Error al crear la cuenta';
+        this.error = apiErrorMessage(err, 'Error al crear la cuenta');
       }
     });
   }
@@ -378,7 +422,7 @@ export class AuthComponent implements OnInit {
       },
       error: (err) => {
         this.loading = false;
-        this.error = err?.error?.error || err?.error || err?.message || 'Error al iniciar sesión rápida';
+        this.error = apiErrorMessage(err, 'Error al iniciar sesión rápida');
       }
     });
   }
@@ -395,7 +439,7 @@ export class AuthComponent implements OnInit {
       error: (err) => {
         this.loading = false;
         this.info = null;
-        this.error = err?.error?.message || err?.message || 'Error al inyectar script SQL.';
+        this.error = apiErrorMessage(err, 'Error al inyectar script SQL.');
       }
     });
   }

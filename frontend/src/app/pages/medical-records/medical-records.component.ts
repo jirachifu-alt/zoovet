@@ -1,6 +1,6 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MedicalRecordService } from '../../core/services/medical-record.service';
 import { PetService } from '../../core/services/pet.service';
 import { UserService } from '../../core/services/user.service';
@@ -9,8 +9,10 @@ import { MedicalRecord, MedicalRecordCreateDto } from '../../core/models/medical
 import { Pet } from '../../core/models/pet.model';
 import { User } from '../../core/models/user.model';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { FieldErrorComponent } from '../../shared/components/field-error/field-error.component';
 import { ModalComponent } from '../../shared/components/modal/modal.component';
 import { ConfirmComponent } from '../../shared/components/confirm/confirm.component';
+import { apiErrorMessage } from '../../core/utils/api-error';
 import { fmtDate, toLocalInput } from '../../core/utils/format';
 
 const EMPTY_RECORD = {
@@ -28,7 +30,15 @@ const EMPTY_RECORD = {
 @Component({
   selector: 'app-medical-records',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, ModalComponent, ConfirmComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ReactiveFormsModule,
+    IconComponent,
+    FieldErrorComponent,
+    ModalComponent,
+    ConfirmComponent
+  ],
   template: `
     <div class="page-header">
       <div>
@@ -130,113 +140,124 @@ const EMPTY_RECORD = {
       [width]="720"
       (close)="creating = false"
     >
-      <form id="mr-form" (ngSubmit)="save()">
+      <form id="mr-form" [formGroup]="recordForm" (ngSubmit)="save()" novalidate>
         <div class="alert alert-error" *ngIf="formError">{{ formError }}</div>
 
         <div class="field-row">
           <div class="form-group">
-            <label class="form-label">Paciente *</label>
+            <label class="form-label" for="mr-pet">Paciente *</label>
             <select
+              id="mr-pet"
               class="form-select"
-              name="petId"
-              [(ngModel)]="form.petId"
-              required
+              formControlName="petId"
+              [class.is-invalid]="isInvalid('petId')"
+              [attr.aria-invalid]="isInvalid('petId')"
             >
               <option [ngValue]="null">Selecciona una mascota</option>
               <option *ngFor="let p of pets" [ngValue]="p.id">
                 {{ p.name }} · {{ p.species }} — {{ p.ownerName }}
               </option>
             </select>
+            <app-field-error [control]="recordForm.controls.petId" label="El paciente"></app-field-error>
           </div>
           <div class="form-group">
-            <label class="form-label">Veterinario *</label>
+            <label class="form-label" for="mr-vet">Veterinario *</label>
             <select
+              id="mr-vet"
               class="form-select"
-              name="veterinarianId"
-              [(ngModel)]="form.veterinarianId"
-              required
+              formControlName="veterinarianId"
+              [class.is-invalid]="isInvalid('veterinarianId')"
+              [attr.aria-invalid]="isInvalid('veterinarianId')"
             >
               <option [ngValue]="null">Selecciona</option>
               <option *ngFor="let v of vets" [ngValue]="v.id">
                 {{ v.fullName }}
               </option>
             </select>
+            <app-field-error [control]="recordForm.controls.veterinarianId" label="El veterinario"></app-field-error>
           </div>
         </div>
 
         <div class="field-row">
           <div class="form-group">
-            <label class="form-label">Fecha y hora *</label>
+            <label class="form-label" for="mr-date">Fecha y hora *</label>
             <input
+              id="mr-date"
               class="form-input"
               type="datetime-local"
-              name="date"
-              [(ngModel)]="form.date"
-              required
+              formControlName="date"
+              [class.is-invalid]="isInvalid('date')"
+              [attr.aria-invalid]="isInvalid('date')"
             />
+            <app-field-error [control]="recordForm.controls.date" label="La fecha y hora"></app-field-error>
           </div>
           <div class="form-group">
-            <label class="form-label">Peso registrado (kg)</label>
+            <label class="form-label" for="mr-weight">Peso registrado (kg)</label>
             <input
+              id="mr-weight"
               class="form-input"
               type="number"
               step="0.1"
               min="0"
-              name="recordedWeight"
+              formControlName="recordedWeightKg"
               placeholder="Ej. 12.5"
-              [(ngModel)]="form.recordedWeightKg"
+              [class.is-invalid]="isInvalid('recordedWeightKg')"
+              [attr.aria-invalid]="isInvalid('recordedWeightKg')"
             />
+            <app-field-error [control]="recordForm.controls.recordedWeightKg" label="El peso"></app-field-error>
           </div>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Motivo de la consulta *</label>
+          <label class="form-label" for="mr-reason">Motivo de la consulta *</label>
           <input
+            id="mr-reason"
             class="form-input"
-            name="reason"
+            formControlName="reason"
             placeholder="Ej. Otitis externa leve oído derecho"
-            [(ngModel)]="form.reason"
-            required
+            [class.is-invalid]="isInvalid('reason')"
+            [attr.aria-invalid]="isInvalid('reason')"
           />
+          <app-field-error [control]="recordForm.controls.reason" label="El motivo"></app-field-error>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Diagnóstico</label>
+          <label class="form-label" for="mr-diagnosis">Diagnóstico</label>
           <textarea
+            id="mr-diagnosis"
             class="form-textarea"
             rows="2"
-            name="diagnosis"
-            [(ngModel)]="form.diagnosis"
+            formControlName="diagnosis"
           ></textarea>
         </div>
 
         <div class="field-row">
           <div class="form-group">
-            <label class="form-label">Tratamiento</label>
+            <label class="form-label" for="mr-treatment">Tratamiento</label>
             <textarea
+              id="mr-treatment"
               class="form-textarea"
               rows="2"
-              name="treatment"
-              [(ngModel)]="form.treatment"
+              formControlName="treatment"
             ></textarea>
           </div>
           <div class="form-group">
-            <label class="form-label">Receta / indicaciones</label>
+            <label class="form-label" for="mr-prescription">Receta / indicaciones</label>
             <textarea
+              id="mr-prescription"
               class="form-textarea"
               rows="2"
-              name="prescription"
-              [(ngModel)]="form.prescription"
+              formControlName="prescription"
             ></textarea>
           </div>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Notas adicionales</label>
+          <label class="form-label" for="mr-notes">Notas adicionales</label>
           <input
+            id="mr-notes"
             class="form-input"
-            name="notes"
-            [(ngModel)]="form.notes"
+            formControlName="notes"
           />
         </div>
       </form>
@@ -272,6 +293,7 @@ export class MedicalRecordsComponent implements OnInit {
   private petService = inject(PetService);
   private userService = inject(UserService);
   private authService = inject(AuthService);
+  private fb = inject(FormBuilder);
 
   records: MedicalRecord[] = [];
   pets: Pet[] = [];
@@ -284,7 +306,18 @@ export class MedicalRecordsComponent implements OnInit {
   creating: boolean = false;
   saving: boolean = false;
   formError: string | null = null;
-  form = { ...EMPTY_RECORD };
+
+  recordForm = this.fb.nonNullable.group({
+    petId: this.fb.control<number | null>(null, [Validators.required]),
+    veterinarianId: this.fb.control<number | null>(null, [Validators.required]),
+    date: [toLocalInput(new Date()), [Validators.required]],
+    reason: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(200)]],
+    diagnosis: [''],
+    treatment: [''],
+    prescription: [''],
+    recordedWeightKg: this.fb.control<number | null>(null, [Validators.min(0), Validators.max(500)]),
+    notes: ['']
+  });
 
   toDelete: MedicalRecord | null = null;
   deleting: boolean = false;
@@ -324,42 +357,49 @@ export class MedicalRecordsComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.error = err?.error?.error || err?.message || 'Error al cargar historiales clínicos';
+        this.error = apiErrorMessage(err, 'Error al cargar historiales clínicos');
         this.loading = false;
       }
     });
   }
 
+  isInvalid(controlName: string): boolean {
+    const control = this.recordForm.get(controlName);
+    return !!control && control.invalid && (control.dirty || control.touched);
+  }
+
   openCreate(): void {
     const user = this.authService.currentUser();
     const defaultVetId = user?.role === 'ROLE_VETERINARIO' ? user.id : this.vets[0]?.id || null;
-    this.form = {
+    this.recordForm.reset({
       ...EMPTY_RECORD,
       date: toLocalInput(new Date()),
       veterinarianId: defaultVetId
-    };
+    });
     this.formError = null;
     this.creating = true;
   }
 
   save(): void {
-    if (!this.form.petId) {
-      this.formError = 'Selecciona una mascota.';
+    this.formError = null;
+    this.recordForm.markAllAsTouched();
+    if (this.recordForm.invalid) {
+      this.formError = 'Revisa los campos marcados en rojo.';
       return;
     }
-    this.saving = true;
-    this.formError = null;
 
+    this.saving = true;
+    const raw = this.recordForm.getRawValue();
     const payload: MedicalRecordCreateDto = {
-      petId: Number(this.form.petId),
-      veterinarianId: this.form.veterinarianId ? Number(this.form.veterinarianId) : null,
-      date: this.form.date,
-      reason: this.form.reason,
-      diagnosis: this.form.diagnosis || null,
-      treatment: this.form.treatment || null,
-      prescription: this.form.prescription || null,
-      recordedWeightKg: this.form.recordedWeightKg != null ? Number(this.form.recordedWeightKg) : null,
-      notes: this.form.notes || null,
+      petId: Number(raw.petId),
+      veterinarianId: raw.veterinarianId ? Number(raw.veterinarianId) : null,
+      date: raw.date,
+      reason: raw.reason.trim(),
+      diagnosis: raw.diagnosis.trim() || null,
+      treatment: raw.treatment.trim() || null,
+      prescription: raw.prescription.trim() || null,
+      recordedWeightKg: raw.recordedWeightKg != null ? Number(raw.recordedWeightKg) : null,
+      notes: raw.notes.trim() || null,
     };
 
     this.medicalRecordService.create(payload).subscribe({
@@ -370,7 +410,7 @@ export class MedicalRecordsComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        this.formError = err?.error?.error || err?.message || 'Error al guardar consulta';
+        this.formError = apiErrorMessage(err, 'Error al guardar consulta');
       }
     });
   }
@@ -386,7 +426,7 @@ export class MedicalRecordsComponent implements OnInit {
       },
       error: (err) => {
         this.deleting = false;
-        this.error = err?.error?.error || err?.message || 'Error al eliminar consulta';
+        this.error = apiErrorMessage(err, 'Error al eliminar consulta');
         this.toDelete = null;
       }
     });

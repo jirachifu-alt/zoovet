@@ -1,11 +1,13 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { UserService } from '../../core/services/user.service';
 import { AuthService } from '../../core/services/auth.service';
 import { RegisterRequest, Role, User } from '../../core/models/user.model';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { FieldErrorComponent } from '../../shared/components/field-error/field-error.component';
 import { ModalComponent } from '../../shared/components/modal/modal.component';
+import { apiErrorMessage } from '../../core/utils/api-error';
 import { iniciales } from '../../core/utils/format';
 
 interface RoleMeta {
@@ -20,19 +22,26 @@ const ROLE_META_MAP: Record<Role, RoleMeta> = {
   ROLE_CLIENTE: { label: 'Cliente', icon: 'user', cls: 'role-client' },
 };
 
-const EMPTY_USER: RegisterRequest = {
+const EMPTY_USER = {
   fullName: '',
   email: '',
   phone: '',
   address: '',
   password: '',
-  role: 'ROLE_CLIENTE',
+  role: 'ROLE_CLIENTE' as Role,
 };
 
 @Component({
   selector: 'app-users',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, ModalComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ReactiveFormsModule,
+    IconComponent,
+    FieldErrorComponent,
+    ModalComponent
+  ],
   template: `
     <div class="page-header">
       <div>
@@ -131,73 +140,93 @@ const EMPTY_USER: RegisterRequest = {
       title="Nuevo usuario"
       (close)="creating = false"
     >
-      <form id="user-form" (ngSubmit)="save()">
+      <form id="user-form" [formGroup]="userForm" (ngSubmit)="save()" novalidate>
         <div class="alert alert-error" *ngIf="formError">{{ formError }}</div>
 
         <div class="form-group">
-          <label class="form-label">Nombre completo *</label>
+          <label class="form-label" for="user-fullname">Nombre completo *</label>
           <input
+            id="user-fullname"
             class="form-input"
-            name="fullName"
+            formControlName="fullName"
             placeholder="Ej. Dra. Laura Sánchez"
-            [(ngModel)]="form.fullName"
-            required
+            autocomplete="name"
+            [class.is-invalid]="isInvalid('fullName')"
+            [attr.aria-invalid]="isInvalid('fullName')"
           />
+          <app-field-error [control]="userForm.controls.fullName" label="El nombre"></app-field-error>
         </div>
 
         <div class="field-row">
           <div class="form-group">
-            <label class="form-label">Correo electrónico *</label>
+            <label class="form-label" for="user-email">Correo electrónico *</label>
             <input
+              id="user-email"
               class="form-input"
               type="email"
-              name="email"
+              formControlName="email"
               placeholder="usuario@zoovet.com"
-              [(ngModel)]="form.email"
-              required
+              autocomplete="email"
+              [class.is-invalid]="isInvalid('email')"
+              [attr.aria-invalid]="isInvalid('email')"
             />
+            <app-field-error [control]="userForm.controls.email" label="El correo"></app-field-error>
           </div>
           <div class="form-group">
-            <label class="form-label">Teléfono</label>
+            <label class="form-label" for="user-phone">Teléfono</label>
             <input
+              id="user-phone"
               class="form-input"
-              name="phone"
+              type="tel"
+              formControlName="phone"
               placeholder="+51 999 888 777"
-              [(ngModel)]="form.phone"
+              autocomplete="tel"
+              [class.is-invalid]="isInvalid('phone')"
+              [attr.aria-invalid]="isInvalid('phone')"
             />
+            <app-field-error [control]="userForm.controls.phone" label="El teléfono"></app-field-error>
           </div>
         </div>
 
         <div class="field-row">
           <div class="form-group">
-            <label class="form-label">Rol *</label>
-            <select class="form-select" name="role" [(ngModel)]="form.role">
+            <label class="form-label" for="user-role">Rol *</label>
+            <select
+              id="user-role"
+              class="form-select"
+              formControlName="role"
+              [class.is-invalid]="isInvalid('role')"
+              [attr.aria-invalid]="isInvalid('role')"
+            >
               <option value="ROLE_CLIENTE">Cliente</option>
               <option value="ROLE_VETERINARIO">Veterinario</option>
               <option value="ROLE_ADMIN">Administrador</option>
             </select>
+            <app-field-error [control]="userForm.controls.role" label="El rol"></app-field-error>
           </div>
           <div class="form-group">
-            <label class="form-label">Contraseña * (mín. 6)</label>
+            <label class="form-label" for="user-password">Contraseña * (mín. 6)</label>
             <input
+              id="user-password"
               class="form-input"
               type="password"
-              name="password"
+              formControlName="password"
               placeholder="••••••••"
-              [(ngModel)]="form.password"
-              minlength="6"
-              required
+              autocomplete="new-password"
+              [class.is-invalid]="isInvalid('password')"
+              [attr.aria-invalid]="isInvalid('password')"
             />
+            <app-field-error [control]="userForm.controls.password" label="La contraseña"></app-field-error>
           </div>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Dirección</label>
+          <label class="form-label" for="user-address">Dirección</label>
           <input
+            id="user-address"
             class="form-input"
-            name="address"
+            formControlName="address"
             placeholder="Av. Principal 123, Miraflores"
-            [(ngModel)]="form.address"
           />
         </div>
       </form>
@@ -221,6 +250,7 @@ const EMPTY_USER: RegisterRequest = {
 export class UsersComponent implements OnInit {
   private userService = inject(UserService);
   private authService = inject(AuthService);
+  private fb = inject(FormBuilder);
 
   users: User[] = [];
   loading: boolean = true;
@@ -238,7 +268,15 @@ export class UsersComponent implements OnInit {
   creating: boolean = false;
   saving: boolean = false;
   formError: string | null = null;
-  form: RegisterRequest = { ...EMPTY_USER };
+
+  userForm = this.fb.nonNullable.group({
+    fullName: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(100)]],
+    email: ['', [Validators.required, Validators.email]],
+    phone: ['', [Validators.pattern(/^[+0-9 ()-]{6,20}$/)]],
+    address: [''],
+    password: ['', [Validators.required, Validators.minLength(6)]],
+    role: ['ROLE_CLIENTE' as Role, [Validators.required]]
+  });
 
   get filteredUsers(): User[] {
     const q = this.search.trim().toLowerCase();
@@ -262,22 +300,34 @@ export class UsersComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.error = err?.error?.error || err?.message || 'Error al cargar usuarios';
+        this.error = apiErrorMessage(err, 'Error al cargar usuarios');
         this.loading = false;
       }
     });
   }
 
+  isInvalid(controlName: string): boolean {
+    const control = this.userForm.get(controlName);
+    return !!control && control.invalid && (control.dirty || control.touched);
+  }
+
   openCreate(): void {
-    this.form = { ...EMPTY_USER };
+    this.userForm.reset({ ...EMPTY_USER });
     this.formError = null;
     this.creating = true;
   }
 
   save(): void {
-    this.saving = true;
     this.formError = null;
-    this.authService.register(this.form).subscribe({
+    this.userForm.markAllAsTouched();
+    if (this.userForm.invalid) {
+      this.formError = 'Revisa los campos marcados en rojo.';
+      return;
+    }
+
+    this.saving = true;
+    const payload: RegisterRequest = this.userForm.getRawValue();
+    this.authService.createUser(payload).subscribe({
       next: () => {
         this.saving = false;
         this.creating = false;
@@ -285,7 +335,7 @@ export class UsersComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        this.formError = err?.error?.error || err?.message || 'Error al crear usuario';
+        this.formError = apiErrorMessage(err, 'Error al crear usuario');
       }
     });
   }

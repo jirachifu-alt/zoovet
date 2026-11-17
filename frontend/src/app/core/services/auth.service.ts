@@ -53,6 +53,14 @@ export class AuthService {
     );
   }
 
+  /**
+   * Crea un usuario desde el módulo administrativo sin reemplazar
+   * la sesión del administrador que está realizando la operación.
+   */
+  createUser(userData: RegisterRequest): Observable<AuthResponse> {
+    return this.http.post<AuthResponse>(`${this.apiUrl}/register`, userData);
+  }
+
   quickLogin(roleType: 'ADMIN' | 'VETERINARIO' | 'CLIENTE'): Observable<AuthResponse> {
     let email = 'cliente@zoovet.com';
     let password = 'cliente123';

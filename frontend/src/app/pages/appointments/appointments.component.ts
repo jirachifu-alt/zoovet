@@ -1,6 +1,6 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AppointmentService } from '../../core/services/appointment.service';
 import { PetService } from '../../core/services/pet.service';
 import { UserService } from '../../core/services/user.service';
@@ -8,8 +8,11 @@ import { Appointment, AppointmentCreateDto, AppointmentStatus } from '../../core
 import { Pet } from '../../core/models/pet.model';
 import { User } from '../../core/models/user.model';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { FieldErrorComponent } from '../../shared/components/field-error/field-error.component';
 import { ModalComponent } from '../../shared/components/modal/modal.component';
 import { ConfirmComponent } from '../../shared/components/confirm/confirm.component';
+import { apiErrorMessage } from '../../core/utils/api-error';
+import { futureDateTimeValidator } from '../../core/utils/validators';
 import { fmtDateTime, toLocalInput } from '../../core/utils/format';
 import { STATUS_MAP } from '../dashboard/dashboard.component';
 
@@ -25,7 +28,15 @@ const getNextDayLocal = () => {
 @Component({
   selector: 'app-appointments',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, ModalComponent, ConfirmComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ReactiveFormsModule,
+    IconComponent,
+    FieldErrorComponent,
+    ModalComponent,
+    ConfirmComponent
+  ],
   template: `
     <div class="page-header">
       <div>
@@ -175,42 +186,43 @@ const getNextDayLocal = () => {
       title="Nueva cita"
       (close)="creating = false"
     >
-      <form id="appt-form" (ngSubmit)="save()">
+      <form id="appt-form" [formGroup]="appointmentForm" (ngSubmit)="save()" novalidate>
         <div class="alert alert-error" *ngIf="formError">{{ formError }}</div>
 
         <div class="form-group">
-          <label class="form-label">Paciente *</label>
+          <label class="form-label" for="appt-pet">Paciente *</label>
           <select
+            id="appt-pet"
             class="form-select"
-            name="petId"
-            [(ngModel)]="form.petId"
-            required
+            formControlName="petId"
+            [class.is-invalid]="isInvalid('petId')"
+            [attr.aria-invalid]="isInvalid('petId')"
           >
             <option [ngValue]="null">Selecciona una mascota</option>
             <option *ngFor="let p of pets" [ngValue]="p.id">
               {{ p.name }} · {{ p.species }} — {{ p.ownerName }}
             </option>
           </select>
+          <app-field-error [control]="appointmentForm.controls.petId" label="El paciente"></app-field-error>
         </div>
 
         <div class="field-row">
           <div class="form-group">
-            <label class="form-label">Fecha y hora *</label>
+            <label class="form-label" for="appt-datetime">Fecha y hora *</label>
             <input
+              id="appt-datetime"
               class="form-input"
               type="datetime-local"
-              name="dateTime"
-              [(ngModel)]="form.dateTime"
-              required
+              formControlName="dateTime"
+              [min]="minDateTime"
+              [class.is-invalid]="isInvalid('dateTime')"
+              [attr.aria-invalid]="isInvalid('dateTime')"
             />
+            <app-field-error [control]="appointmentForm.controls.dateTime" label="La fecha y hora"></app-field-error>
           </div>
           <div class="form-group">
-            <label class="form-label">Veterinario</label>
-            <select
-              class="form-select"
-              name="veterinarianId"
-              [(ngModel)]="form.veterinarianId"
-            >
+            <label class="form-label" for="appt-vet">Veterinario</label>
+            <select id="appt-vet" class="form-select" formControlName="veterinarianId">
               <option [ngValue]="null">Sin asignar</option>
               <option *ngFor="let v of vets" [ngValue]="v.id">
                 {{ v.fullName }}
@@ -220,24 +232,26 @@ const getNextDayLocal = () => {
         </div>
 
         <div class="form-group">
-          <label class="form-label">Motivo *</label>
+          <label class="form-label" for="appt-reason">Motivo *</label>
           <input
+            id="appt-reason"
             class="form-input"
-            name="reason"
+            formControlName="reason"
             placeholder="Ej. Control rutinario y desparasitación"
-            [(ngModel)]="form.reason"
-            required
+            [class.is-invalid]="isInvalid('reason')"
+            [attr.aria-invalid]="isInvalid('reason')"
           />
+          <app-field-error [control]="appointmentForm.controls.reason" label="El motivo"></app-field-error>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Notas</label>
+          <label class="form-label" for="appt-notes">Notas</label>
           <textarea
+            id="appt-notes"
             class="form-textarea"
             rows="3"
-            name="notes"
+            formControlName="notes"
             placeholder="Indicaciones para la cita…"
-            [(ngModel)]="form.notes"
           ></textarea>
         </div>
       </form>
@@ -272,6 +286,7 @@ export class AppointmentsComponent implements OnInit {
   private appointmentService = inject(AppointmentService);
   private petService = inject(PetService);
   private userService = inject(UserService);
+  private fb = inject(FormBuilder);
 
   appointments: Appointment[] = [];
   pets: Pet[] = [];
@@ -291,19 +306,17 @@ export class AppointmentsComponent implements OnInit {
   toDelete: Appointment | null = null;
   deleting: boolean = false;
 
-  form: {
-    petId: number | null;
-    veterinarianId: number | null;
-    dateTime: string;
-    reason: string;
-    notes: string;
-  } = {
-    petId: null,
-    veterinarianId: null,
-    dateTime: getNextDayLocal(),
-    reason: '',
-    notes: ''
-  };
+  appointmentForm = this.fb.nonNullable.group({
+    petId: this.fb.control<number | null>(null, [Validators.required]),
+    veterinarianId: this.fb.control<number | null>(null),
+    dateTime: [getNextDayLocal(), [Validators.required, futureDateTimeValidator()]],
+    reason: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(200)]],
+    notes: ['']
+  });
+
+  get minDateTime(): string {
+    return toLocalInput(new Date());
+  }
 
   get counts(): Record<string, number> {
     const c: Record<string, number> = { Todas: this.appointments.length };
@@ -350,10 +363,15 @@ export class AppointmentsComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.error = err?.error?.error || err?.message || 'Error al cargar citas';
+        this.error = apiErrorMessage(err, 'Error al cargar citas');
         this.loading = false;
       }
     });
+  }
+
+  isInvalid(controlName: string): boolean {
+    const control = this.appointmentForm.get(controlName);
+    return !!control && control.invalid && (control.dirty || control.touched);
   }
 
   openCreate(): void {
@@ -361,8 +379,8 @@ export class AppointmentsComponent implements OnInit {
       this.petService.getAll().subscribe({
         next: (data) => {
           this.pets = data || [];
-          if (!this.form.petId && this.pets.length > 0) {
-            this.form.petId = this.pets[0].id;
+          if (!this.appointmentForm.controls.petId.value && this.pets.length > 0) {
+            this.appointmentForm.controls.petId.setValue(this.pets[0].id);
           }
         },
         error: () => (this.pets = [])
@@ -375,43 +393,36 @@ export class AppointmentsComponent implements OnInit {
       });
     }
 
-    this.form = {
+    this.appointmentForm.reset({
       petId: this.pets.length > 0 ? this.pets[0].id : null,
       veterinarianId: null,
       dateTime: getNextDayLocal(),
       reason: '',
       notes: ''
-    };
+    });
     this.formError = null;
     this.creating = true;
   }
 
   save(): void {
-    if (!this.form.petId) {
-      this.formError = 'Debes seleccionar una mascota.';
-      return;
-    }
-    if (!this.form.dateTime) {
-      this.formError = 'Debes especificar una fecha y hora para la cita.';
-      return;
-    }
-    if (!this.form.reason || !this.form.reason.trim()) {
-      this.formError = 'Debes ingresar el motivo de la cita.';
+    this.formError = null;
+    this.appointmentForm.markAllAsTouched();
+    if (this.appointmentForm.invalid) {
+      this.formError = 'Revisa los campos marcados en rojo.';
       return;
     }
 
     this.saving = true;
-    this.formError = null;
-
-    const selectedPet = this.pets.find((p) => String(p.id) === String(this.form.petId));
+    const raw = this.appointmentForm.getRawValue();
+    const selectedPet = this.pets.find((p) => p.id === raw.petId);
 
     const payload: AppointmentCreateDto = {
-      petId: Number(this.form.petId),
+      petId: Number(raw.petId),
       clientId: selectedPet?.ownerId ?? null,
-      veterinarianId: this.form.veterinarianId ? Number(this.form.veterinarianId) : null,
-      dateTime: this.form.dateTime,
-      reason: this.form.reason.trim(),
-      notes: this.form.notes ? this.form.notes.trim() : null
+      veterinarianId: raw.veterinarianId ? Number(raw.veterinarianId) : null,
+      dateTime: raw.dateTime,
+      reason: raw.reason.trim(),
+      notes: raw.notes.trim() || null
     };
 
     this.appointmentService.create(payload).subscribe({
@@ -422,12 +433,7 @@ export class AppointmentsComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        this.formError =
-          err?.error?.error ||
-          err?.error?.message ||
-          (typeof err?.error === 'string' ? err.error : null) ||
-          err?.message ||
-          'Error al programar cita';
+        this.formError = apiErrorMessage(err, 'Error al programar cita');
       }
     });
   }
@@ -440,7 +446,7 @@ export class AppointmentsComponent implements OnInit {
         this.busyId = null;
       },
       error: (err) => {
-        this.error = err?.error?.error || err?.message || 'Error al cambiar estado';
+        this.error = apiErrorMessage(err, 'Error al cambiar estado');
         this.busyId = null;
       }
     });
@@ -457,7 +463,7 @@ export class AppointmentsComponent implements OnInit {
       },
       error: (err) => {
         this.deleting = false;
-        this.error = err?.error?.error || err?.message || 'Error al eliminar cita';
+        this.error = apiErrorMessage(err, 'Error al eliminar cita');
         this.toDelete = null;
       }
     });

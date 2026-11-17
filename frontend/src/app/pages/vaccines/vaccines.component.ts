@@ -1,6 +1,6 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { VaccineService } from '../../core/services/vaccine.service';
 import { PetService } from '../../core/services/pet.service';
 import { UserService } from '../../core/services/user.service';
@@ -8,8 +8,11 @@ import { VaccineRecord, VaccineRecordCreateDto } from '../../core/models/vaccine
 import { Pet } from '../../core/models/pet.model';
 import { User } from '../../core/models/user.model';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { FieldErrorComponent } from '../../shared/components/field-error/field-error.component';
 import { ModalComponent } from '../../shared/components/modal/modal.component';
 import { ConfirmComponent } from '../../shared/components/confirm/confirm.component';
+import { apiErrorMessage } from '../../core/utils/api-error';
+import { dateAfterValidator } from '../../core/utils/validators';
 import { fmtDate } from '../../core/utils/format';
 
 type VaccineStatusType = 'vigente' | 'por-vencer' | 'vencida';
@@ -27,7 +30,15 @@ const EMPTY_VACCINE = {
 @Component({
   selector: 'app-vaccines',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, ModalComponent, ConfirmComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ReactiveFormsModule,
+    IconComponent,
+    FieldErrorComponent,
+    ModalComponent,
+    ConfirmComponent
+  ],
   template: `
     <div class="page-header">
       <div>
@@ -146,70 +157,75 @@ const EMPTY_VACCINE = {
       title="Registrar vacuna"
       (close)="creating = false"
     >
-      <form id="vac-form" (ngSubmit)="save()">
+      <form id="vac-form" [formGroup]="vaccineForm" (ngSubmit)="save()" novalidate>
         <div class="alert alert-error" *ngIf="formError">{{ formError }}</div>
 
         <div class="field-row">
           <div class="form-group">
-            <label class="form-label">Paciente *</label>
+            <label class="form-label" for="vac-pet">Paciente *</label>
             <select
+              id="vac-pet"
               class="form-select"
-              name="petId"
-              [(ngModel)]="form.petId"
-              required
+              formControlName="petId"
+              [class.is-invalid]="isInvalid('petId')"
+              [attr.aria-invalid]="isInvalid('petId')"
             >
               <option [ngValue]="null">Selecciona una mascota</option>
               <option *ngFor="let p of pets" [ngValue]="p.id">
                 {{ p.name }} · {{ p.species }} — {{ p.ownerName }}
               </option>
             </select>
+            <app-field-error [control]="vaccineForm.controls.petId" label="El paciente"></app-field-error>
           </div>
           <div class="form-group">
-            <label class="form-label">Nombre de la vacuna *</label>
+            <label class="form-label" for="vac-name">Nombre de la vacuna *</label>
             <input
+              id="vac-name"
               class="form-input"
               list="vaccines-list"
-              name="vaccineName"
+              formControlName="vaccineName"
               placeholder="Ej. Antirrábica"
-              [(ngModel)]="form.vaccineName"
-              required
+              [class.is-invalid]="isInvalid('vaccineName')"
+              [attr.aria-invalid]="isInvalid('vaccineName')"
             />
             <datalist id="vaccines-list">
               <option *ngFor="let opt of defaultVaccineNames" [value]="opt"></option>
             </datalist>
+            <app-field-error [control]="vaccineForm.controls.vaccineName" label="El nombre de la vacuna"></app-field-error>
           </div>
         </div>
 
         <div class="field-row">
           <div class="form-group">
-            <label class="form-label">Fecha de aplicación *</label>
+            <label class="form-label" for="vac-application">Fecha de aplicación *</label>
             <input
+              id="vac-application"
               class="form-input"
               type="date"
-              name="applicationDate"
-              [(ngModel)]="form.applicationDate"
-              required
+              formControlName="applicationDate"
+              [class.is-invalid]="isInvalid('applicationDate')"
+              [attr.aria-invalid]="isInvalid('applicationDate')"
             />
+            <app-field-error [control]="vaccineForm.controls.applicationDate" label="La fecha de aplicación"></app-field-error>
           </div>
           <div class="form-group">
-            <label class="form-label">Próximo refuerzo</label>
+            <label class="form-label" for="vac-nextdue">Próximo refuerzo</label>
             <input
+              id="vac-nextdue"
               class="form-input"
               type="date"
-              name="nextDueDate"
-              [(ngModel)]="form.nextDueDate"
+              formControlName="nextDueDate"
+              [class.is-invalid]="isInvalid('nextDueDate')"
+              [attr.aria-invalid]="isInvalid('nextDueDate')"
             />
+            <app-field-error [control]="vaccineForm.controls.nextDueDate" label="El próximo refuerzo"></app-field-error>
           </div>
         </div>
 
         <div class="field-row">
           <div class="form-group">
-            <label class="form-label">Veterinario</label>
-            <select
-              class="form-select"
-              name="veterinarianId"
-              [(ngModel)]="form.veterinarianId"
-            >
+            <label class="form-label" for="vac-vet">Veterinario</label>
+            <select id="vac-vet" class="form-select" formControlName="veterinarianId">
               <option [ngValue]="null">Selecciona</option>
               <option *ngFor="let v of vets" [ngValue]="v.id">
                 {{ v.fullName }}
@@ -217,24 +233,24 @@ const EMPTY_VACCINE = {
             </select>
           </div>
           <div class="form-group">
-            <label class="form-label">N° de lote</label>
+            <label class="form-label" for="vac-batch">N° de lote</label>
             <input
+              id="vac-batch"
               class="form-input"
-              name="batchNumber"
+              formControlName="batchNumber"
               placeholder="Ej. VAC-2026-X88"
-              [(ngModel)]="form.batchNumber"
             />
           </div>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Notas</label>
+          <label class="form-label" for="vac-notes">Notas</label>
           <textarea
+            id="vac-notes"
             class="form-textarea"
             rows="2"
-            name="notes"
+            formControlName="notes"
             placeholder="Reacciones adversas, observaciones…"
-            [(ngModel)]="form.notes"
           ></textarea>
         </div>
       </form>
@@ -269,6 +285,7 @@ export class VaccinesComponent implements OnInit {
   private vaccineService = inject(VaccineService);
   private petService = inject(PetService);
   private userService = inject(UserService);
+  private fb = inject(FormBuilder);
 
   vaccines: VaccineRecord[] = [];
   pets: Pet[] = [];
@@ -298,10 +315,25 @@ export class VaccinesComponent implements OnInit {
   creating: boolean = false;
   saving: boolean = false;
   formError: string | null = null;
-  form = { ...EMPTY_VACCINE };
+
+  vaccineForm = this.fb.nonNullable.group({
+    petId: this.fb.control<number | null>(null, [Validators.required]),
+    vaccineName: ['', [Validators.required, Validators.minLength(2), Validators.maxLength(100)]],
+    applicationDate: [new Date().toISOString().slice(0, 10), [Validators.required]],
+    nextDueDate: ['', [dateAfterValidator('applicationDate')]],
+    veterinarianId: this.fb.control<number | null>(null),
+    batchNumber: [''],
+    notes: ['']
+  });
 
   toDelete: VaccineRecord | null = null;
   deleting: boolean = false;
+
+  constructor() {
+    this.vaccineForm.controls.applicationDate.valueChanges.subscribe(() => {
+      this.vaccineForm.controls.nextDueDate.updateValueAndValidity({ emitEvent: false });
+    });
+  }
 
   get filteredVaccines(): VaccineRecord[] {
     const q = this.search.trim().toLowerCase();
@@ -340,37 +372,44 @@ export class VaccinesComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.error = err?.error?.error || err?.message || 'Error al cargar vacunas';
+        this.error = apiErrorMessage(err, 'Error al cargar vacunas');
         this.loading = false;
       }
     });
   }
 
+  isInvalid(controlName: string): boolean {
+    const control = this.vaccineForm.get(controlName);
+    return !!control && control.invalid && (control.dirty || control.touched);
+  }
+
   openCreate(): void {
-    this.form = {
+    this.vaccineForm.reset({
       ...EMPTY_VACCINE,
       applicationDate: new Date().toISOString().slice(0, 10),
-    };
+    });
     this.formError = null;
     this.creating = true;
   }
 
   save(): void {
-    if (!this.form.petId) {
-      this.formError = 'Selecciona una mascota.';
+    this.formError = null;
+    this.vaccineForm.markAllAsTouched();
+    if (this.vaccineForm.invalid) {
+      this.formError = 'Revisa los campos marcados en rojo.';
       return;
     }
-    this.saving = true;
-    this.formError = null;
 
+    this.saving = true;
+    const raw = this.vaccineForm.getRawValue();
     const payload: VaccineRecordCreateDto = {
-      petId: Number(this.form.petId),
-      vaccineName: this.form.vaccineName,
-      applicationDate: this.form.applicationDate,
-      nextDueDate: this.form.nextDueDate || null,
-      veterinarianId: this.form.veterinarianId ? Number(this.form.veterinarianId) : null,
-      batchNumber: this.form.batchNumber || null,
-      notes: this.form.notes || null,
+      petId: Number(raw.petId),
+      vaccineName: raw.vaccineName.trim(),
+      applicationDate: raw.applicationDate,
+      nextDueDate: raw.nextDueDate || null,
+      veterinarianId: raw.veterinarianId ? Number(raw.veterinarianId) : null,
+      batchNumber: raw.batchNumber.trim() || null,
+      notes: raw.notes.trim() || null,
     };
 
     this.vaccineService.create(payload).subscribe({
@@ -381,7 +420,7 @@ export class VaccinesComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        this.formError = err?.error?.error || err?.message || 'Error al registrar vacuna';
+        this.formError = apiErrorMessage(err, 'Error al registrar vacuna');
       }
     });
   }
@@ -397,7 +436,7 @@ export class VaccinesComponent implements OnInit {
       },
       error: (err) => {
         this.deleting = false;
-        this.error = err?.error?.error || err?.message || 'Error al eliminar vacuna';
+        this.error = apiErrorMessage(err, 'Error al eliminar vacuna');
         this.toDelete = null;
       }
     });

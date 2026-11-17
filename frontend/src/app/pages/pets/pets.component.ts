@@ -1,32 +1,43 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { PetService } from '../../core/services/pet.service';
 import { UserService } from '../../core/services/user.service';
 import { Pet, PetCreateOrUpdateDto } from '../../core/models/pet.model';
 import { User } from '../../core/models/user.model';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { FieldErrorComponent } from '../../shared/components/field-error/field-error.component';
 import { ModalComponent } from '../../shared/components/modal/modal.component';
 import { ConfirmComponent } from '../../shared/components/confirm/confirm.component';
+import { apiErrorMessage } from '../../core/utils/api-error';
+import { notFutureDateValidator } from '../../core/utils/validators';
 import { edad, iniciales, PLACEHOLDER_PET } from '../../core/utils/format';
 
-const EMPTY_PET: PetCreateOrUpdateDto = {
+const EMPTY_PET = {
   name: '',
   species: 'Perro',
   breed: '',
   gender: 'Macho',
   birthDate: '',
-  weightKg: null,
+  weightKg: null as number | null,
   color: '',
   photoUrl: '',
   notes: '',
-  ownerId: null,
+  ownerId: null as number | null,
 };
 
 @Component({
   selector: 'app-pets',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, ModalComponent, ConfirmComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ReactiveFormsModule,
+    IconComponent,
+    FieldErrorComponent,
+    ModalComponent,
+    ConfirmComponent
+  ],
   template: `
     <div class="page-header">
       <div>
@@ -150,48 +161,53 @@ const EMPTY_PET: PetCreateOrUpdateDto = {
     <!-- Modal Crear / Editar -->
     <app-modal
       *ngIf="editing"
-      [title]="editing === 'new' ? 'Nueva mascota' : 'Editar ' + form.name"
+      [title]="editing === 'new' ? 'Nueva mascota' : 'Editar ' + (petForm.controls.name.value || 'mascota')"
       (close)="editing = null"
     >
-      <form id="pet-form" (ngSubmit)="save()">
+      <form id="pet-form" [formGroup]="petForm" (ngSubmit)="save()" novalidate>
         <div class="alert alert-error" *ngIf="formError">{{ formError }}</div>
 
         <div class="field-row">
           <div class="form-group">
-            <label class="form-label">Nombre *</label>
+            <label class="form-label" for="pet-name">Nombre *</label>
             <input
+              id="pet-name"
               class="form-input"
-              name="petName"
-              [(ngModel)]="form.name"
-              required
+              formControlName="name"
+              placeholder="Ej. Luna"
+              [class.is-invalid]="isInvalid('name')"
+              [attr.aria-invalid]="isInvalid('name')"
             />
+            <app-field-error [control]="petForm.controls.name" label="El nombre"></app-field-error>
           </div>
           <div class="form-group">
-            <label class="form-label">Especie *</label>
+            <label class="form-label" for="pet-species">Especie *</label>
             <select
+              id="pet-species"
               class="form-select"
-              name="petSpecies"
-              [(ngModel)]="form.species"
-              required
+              formControlName="species"
+              [class.is-invalid]="isInvalid('species')"
+              [attr.aria-invalid]="isInvalid('species')"
             >
-              <option *ngFor="let s of standardSpecies" [value]="s">{{ s }}</option>
+              <option *ngFor="let s of standardSpecies" [ngValue]="s">{{ s }}</option>
             </select>
+            <app-field-error [control]="petForm.controls.species" label="La especie"></app-field-error>
           </div>
         </div>
 
         <div class="field-row">
           <div class="form-group">
-            <label class="form-label">Raza</label>
+            <label class="form-label" for="pet-breed">Raza</label>
             <input
+              id="pet-breed"
               class="form-input"
-              name="petBreed"
+              formControlName="breed"
               placeholder="Ej. Golden Retriever"
-              [(ngModel)]="form.breed"
             />
           </div>
           <div class="form-group">
-            <label class="form-label">Sexo</label>
-            <select class="form-select" name="petGender" [(ngModel)]="form.gender">
+            <label class="form-label" for="pet-gender">Sexo</label>
+            <select id="pet-gender" class="form-select" formControlName="gender">
               <option value="Macho">Macho</option>
               <option value="Hembra">Hembra</option>
             </select>
@@ -200,72 +216,83 @@ const EMPTY_PET: PetCreateOrUpdateDto = {
 
         <div class="field-row">
           <div class="form-group">
-            <label class="form-label">Fecha de nacimiento</label>
+            <label class="form-label" for="pet-birthdate">Fecha de nacimiento</label>
             <input
+              id="pet-birthdate"
               class="form-input"
               type="date"
-              name="petBirthDate"
-              [(ngModel)]="form.birthDate"
+              formControlName="birthDate"
+              [class.is-invalid]="isInvalid('birthDate')"
+              [attr.aria-invalid]="isInvalid('birthDate')"
             />
+            <app-field-error [control]="petForm.controls.birthDate" label="La fecha"></app-field-error>
           </div>
           <div class="form-group">
-            <label class="form-label">Peso (kg)</label>
+            <label class="form-label" for="pet-weight">Peso (kg)</label>
             <input
+              id="pet-weight"
               class="form-input"
               type="number"
               step="0.1"
               min="0"
-              name="petWeight"
+              formControlName="weightKg"
               placeholder="Ej. 12.5"
-              [(ngModel)]="form.weightKg"
+              [class.is-invalid]="isInvalid('weightKg')"
+              [attr.aria-invalid]="isInvalid('weightKg')"
             />
+            <app-field-error [control]="petForm.controls.weightKg" label="El peso"></app-field-error>
           </div>
         </div>
 
         <div class="field-row">
           <div class="form-group">
-            <label class="form-label">Color</label>
+            <label class="form-label" for="pet-color">Color</label>
             <input
+              id="pet-color"
               class="form-input"
-              name="petColor"
+              formControlName="color"
               placeholder="Ej. Dorado"
-              [(ngModel)]="form.color"
             />
           </div>
           <div class="form-group">
-            <label class="form-label">Propietario *</label>
+            <label class="form-label" for="pet-owner">Propietario *</label>
             <select
+              id="pet-owner"
               class="form-select"
-              name="petOwnerId"
-              [(ngModel)]="form.ownerId"
-              required
+              formControlName="ownerId"
+              [class.is-invalid]="isInvalid('ownerId')"
+              [attr.aria-invalid]="isInvalid('ownerId')"
             >
               <option [ngValue]="null">Selecciona un cliente</option>
               <option *ngFor="let c of clients" [ngValue]="c.id">
                 {{ c.fullName }}
               </option>
             </select>
+            <app-field-error [control]="petForm.controls.ownerId" label="El propietario"></app-field-error>
           </div>
         </div>
 
         <div class="form-group">
-          <label class="form-label">URL de la foto</label>
+          <label class="form-label" for="pet-photo">URL de la foto</label>
           <input
+            id="pet-photo"
             class="form-input"
-            name="petPhotoUrl"
+            formControlName="photoUrl"
             placeholder="https://…"
-            [(ngModel)]="form.photoUrl"
+            [class.is-invalid]="isInvalid('photoUrl')"
+            [attr.aria-invalid]="isInvalid('photoUrl')"
           />
+          <app-field-error [control]="petForm.controls.photoUrl" label="La URL"></app-field-error>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Notas</label>
+          <label class="form-label" for="pet-notes">Notas</label>
           <textarea
+            id="pet-notes"
             class="form-textarea"
             rows="3"
-            name="petNotes"
+            formControlName="notes"
             placeholder="Alergias, cuidados especiales…"
-            [(ngModel)]="form.notes"
           ></textarea>
         </div>
       </form>
@@ -299,6 +326,7 @@ const EMPTY_PET: PetCreateOrUpdateDto = {
 export class PetsComponent implements OnInit {
   private petService = inject(PetService);
   private userService = inject(UserService);
+  private fb = inject(FormBuilder);
 
   pets: Pet[] = [];
   clients: User[] = [];
@@ -310,9 +338,21 @@ export class PetsComponent implements OnInit {
   standardSpecies = ['Perro', 'Gato', 'Ave', 'Conejo', 'Hámster', 'Reptil', 'Pez', 'Otro'];
 
   editing: 'new' | Pet | null = null;
-  form: PetCreateOrUpdateDto = { ...EMPTY_PET };
   saving: boolean = false;
   formError: string | null = null;
+
+  petForm = this.fb.nonNullable.group({
+    name: ['', [Validators.required, Validators.minLength(2), Validators.maxLength(80)]],
+    species: ['Perro', [Validators.required]],
+    breed: [''],
+    gender: ['Macho'],
+    birthDate: ['', [notFutureDateValidator()]],
+    weightKg: this.fb.control<number | null>(null, [Validators.min(0), Validators.max(500)]),
+    color: [''],
+    photoUrl: ['', [Validators.pattern(/^https?:\/\/.+/i)]],
+    notes: [''],
+    ownerId: this.fb.control<number | null>(null, [Validators.required])
+  });
 
   toDelete: Pet | null = null;
   deleting: boolean = false;
@@ -353,20 +393,25 @@ export class PetsComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.error = err?.error?.error || err?.message || 'Error al cargar mascotas';
+        this.error = apiErrorMessage(err, 'Error al cargar mascotas');
         this.loading = false;
       }
     });
   }
 
+  isInvalid(controlName: string): boolean {
+    const control = this.petForm.get(controlName);
+    return !!control && control.invalid && (control.dirty || control.touched);
+  }
+
   openCreate(): void {
-    this.form = { ...EMPTY_PET };
+    this.petForm.reset({ ...EMPTY_PET });
     this.formError = null;
     this.editing = 'new';
   }
 
   openEdit(pet: Pet): void {
-    this.form = {
+    this.petForm.reset({
       name: pet.name,
       species: pet.species,
       breed: pet.breed || '',
@@ -377,24 +422,32 @@ export class PetsComponent implements OnInit {
       photoUrl: pet.photoUrl || '',
       notes: pet.notes || '',
       ownerId: pet.ownerId ?? null,
-    };
+    });
     this.formError = null;
     this.editing = pet;
   }
 
   save(): void {
-    this.saving = true;
     this.formError = null;
+    this.petForm.markAllAsTouched();
+    if (this.petForm.invalid) {
+      this.formError = 'Revisa los campos marcados en rojo.';
+      return;
+    }
 
+    this.saving = true;
+    const raw = this.petForm.getRawValue();
     const payload: PetCreateOrUpdateDto = {
-      ...this.form,
-      ownerId: this.form.ownerId ? Number(this.form.ownerId) : null,
-      weightKg: this.form.weightKg != null && this.form.weightKg !== ('' as any) ? Number(this.form.weightKg) : null,
-      birthDate: this.form.birthDate || null,
-      photoUrl: this.form.photoUrl || null,
-      breed: this.form.breed || null,
-      color: this.form.color || null,
-      notes: this.form.notes || null,
+      name: raw.name.trim(),
+      species: raw.species,
+      breed: raw.breed.trim() || null,
+      gender: raw.gender || null,
+      birthDate: raw.birthDate || null,
+      weightKg: raw.weightKg != null ? Number(raw.weightKg) : null,
+      color: raw.color.trim() || null,
+      photoUrl: raw.photoUrl.trim() || null,
+      notes: raw.notes.trim() || null,
+      ownerId: raw.ownerId ? Number(raw.ownerId) : null,
     };
 
     const action =
@@ -410,7 +463,7 @@ export class PetsComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        this.formError = err?.error?.error || err?.message || 'Error al guardar mascota';
+        this.formError = apiErrorMessage(err, 'Error al guardar mascota');
       }
     });
   }
@@ -426,7 +479,7 @@ export class PetsComponent implements OnInit {
       },
       error: (err) => {
         this.deleting = false;
-        this.error = err?.error?.error || err?.message || 'Error al eliminar mascota';
+        this.error = apiErrorMessage(err, 'Error al eliminar mascota');
         this.toDelete = null;
       }
     });

@@ -72,7 +72,9 @@ frontend/src/app/
 │   │   ├── dashboard.service.ts    # KPIs del panel
 │   │   └── user.service.ts         # Directorio de clientes y veterinarios
 │   └── utils/
-│       └── format.ts               # Fechas, edades, iniciales y placeholders
+│       ├── format.ts               # Fechas, edades, iniciales y placeholders
+│       ├── validators.ts           # Validadores reactivos personalizados
+│       └── api-error.ts            # Normalización de errores HTTP para la UI
 ├── layout/
 │   └── layout.component.ts         # Sidebar receptivo, barra superior y navegación
 ├── pages/
@@ -87,5 +89,14 @@ frontend/src/app/
     └── components/
         ├── icon/                   # Iconos SVG vectoriales basados en Lucide
         ├── modal/                  # Ventana modal reutilizable
+        ├── field-error/            # Mensajes de validación inline reutilizables
         └── confirm/                # Diálogo de confirmación para eliminar
 ```
+
+## Formularios reactivos y detección de cambios
+
+- Todos los formularios de negocio usan `ReactiveFormsModule`, `FormBuilder` y `Validators`.
+- `FieldErrorComponent` muestra el primer error de cada control cuando está `touched` o `dirty`.
+- `validators.ts` incluye validadores de fechas y confirmación de contraseña.
+- `api-error.ts` unifica los mensajes de error del backend y de red.
+- `main.ts` carga `zone.js` y `app.config.ts` habilita `provideZoneChangeDetection` para que las respuestas HTTP actualicen la vista de forma consistente.

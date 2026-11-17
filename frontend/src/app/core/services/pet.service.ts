@@ -11,13 +11,16 @@ export class PetService {
   private http = inject(HttpClient);
   private apiUrl = `${environment.apiUrl}/pets`;
 
-  getAll(params: { ownerId?: number; search?: string } = {}): Observable<Pet[]> {
+  getAll(params: { ownerId?: number; search?: string; livestock?: boolean } = {}): Observable<Pet[]> {
     let httpParams = new HttpParams();
     if (params.ownerId) {
       httpParams = httpParams.set('ownerId', params.ownerId.toString());
     }
     if (params.search) {
       httpParams = httpParams.set('search', params.search);
+    }
+    if (params.livestock) {
+      httpParams = httpParams.set('livestock', 'true');
     }
     return this.http.get<Pet[]>(this.apiUrl, { params: httpParams });
   }

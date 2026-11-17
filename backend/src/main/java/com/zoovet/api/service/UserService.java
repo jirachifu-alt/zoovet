@@ -34,6 +34,12 @@ public class UserService {
                 .collect(Collectors.toList());
     }
 
+    public List<UserDto> getZootechnicians() {
+        return userRepository.findByRoleAndActiveTrue(Role.ROLE_ZOOTECNICO).stream()
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
+    }
+
     public UserDto getUserById(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado con ID: " + id));

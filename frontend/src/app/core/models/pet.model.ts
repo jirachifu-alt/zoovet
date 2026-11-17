@@ -3,6 +3,9 @@ export interface Pet {
   name: string;
   species: string;
   breed?: string;
+  productionType?: string;
+  farmName?: string;
+  recordCode?: string;
   gender?: string;
   birthDate?: string;
   weightKg?: number | null;
@@ -20,6 +23,9 @@ export interface PetCreateOrUpdateDto {
   name: string;
   species: string;
   breed?: string | null;
+  productionType?: string | null;
+  farmName?: string | null;
+  recordCode?: string | null;
   gender?: string | null;
   birthDate?: string | null;
   weightKg?: number | null;

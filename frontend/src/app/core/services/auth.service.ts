@@ -21,6 +21,7 @@ export class AuthService {
   readonly isAuthenticated = computed(() => !!this.tokenSignal());
   readonly isAdmin = computed(() => this.currentUserSignal()?.role === 'ROLE_ADMIN');
   readonly isVet = computed(() => this.currentUserSignal()?.role === 'ROLE_VETERINARIO');
+  readonly isZootechnician = computed(() => this.currentUserSignal()?.role === 'ROLE_ZOOTECNICO');
   readonly isClient = computed(() => this.currentUserSignal()?.role === 'ROLE_CLIENTE');
 
   private getInitialToken(): string | null {
@@ -61,7 +62,7 @@ export class AuthService {
     return this.http.post<AuthResponse>(`${this.apiUrl}/register`, userData);
   }
 
-  quickLogin(roleType: 'ADMIN' | 'VETERINARIO' | 'CLIENTE'): Observable<AuthResponse> {
+  quickLogin(roleType: 'ADMIN' | 'VETERINARIO' | 'ZOOTECNICO' | 'CLIENTE'): Observable<AuthResponse> {
     let email = 'cliente@zoovet.com';
     let password = 'cliente123';
 
@@ -71,6 +72,9 @@ export class AuthService {
     } else if (roleType === 'VETERINARIO') {
       email = 'vet@zoovet.com';
       password = 'vet123';
+    } else if (roleType === 'ZOOTECNICO') {
+      email = 'zootecnico@zoovet.com';
+      password = 'zootecnico123';
     }
 
     return this.login({ email, password });

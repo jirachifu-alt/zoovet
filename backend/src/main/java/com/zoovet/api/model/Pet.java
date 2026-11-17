@@ -23,10 +23,19 @@ public class Pet {
     private String name;
 
     @Column(nullable = false, length = 50)
-    private String species; // Perro, Gato, Ave, Conejo, etc.
+    private String species; // Perro, Gato, Vaca, Oveja, Cabra, etc.
 
     @Column(length = 80)
     private String breed;
+
+    @Column(length = 50)
+    private String productionType; // Leche, Carne, Lana, Fibra, Trabajo, etc.
+
+    @Column(length = 120)
+    private String farmName;
+
+    @Column(length = 60)
+    private String recordCode;
 
     @Column(length = 15)
     private String gender; // Macho, Hembra

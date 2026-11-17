@@ -30,7 +30,14 @@ export const routes: Routes = [
       },
       {
         path: 'mascotas',
-        title: 'Mascotas · ZooVet',
+        title: 'Pacientes · ZooVet',
+        loadComponent: () => import('./pages/pets/pets.component').then((m) => m.PetsComponent)
+      },
+      {
+        path: 'zootecnia',
+        title: 'Zootecnia · ZooVet',
+        canActivate: [roleGuard],
+        data: { roles: ['ROLE_ADMIN', 'ROLE_VETERINARIO', 'ROLE_ZOOTECNICO'], livestock: true },
         loadComponent: () => import('./pages/pets/pets.component').then((m) => m.PetsComponent)
       },
       {

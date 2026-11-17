@@ -1,5 +1,6 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { ActivatedRoute } from '@angular/router';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { PetService } from '../../core/services/pet.service';
 import { UserService } from '../../core/services/user.service';
@@ -12,11 +13,15 @@ import { ConfirmComponent } from '../../shared/components/confirm/confirm.compon
 import { apiErrorMessage } from '../../core/utils/api-error';
 import { notFutureDateValidator } from '../../core/utils/validators';
 import { edad, iniciales, PLACEHOLDER_PET } from '../../core/utils/format';
+import { isLivestockSpecies, LIVESTOCK_SPECIES, PRODUCTION_TYPES } from '../../core/utils/livestock';
 
 const EMPTY_PET = {
   name: '',
   species: 'Perro',
   breed: '',
+  productionType: '',
+  farmName: '',
+  recordCode: '',
   gender: 'Macho',
   birthDate: '',
   weightKg: null as number | null,
@@ -41,9 +46,13 @@ const EMPTY_PET = {
   template: `
     <div class="page-header">
       <div>
-        <h2 class="page-title">Mascotas</h2>
+        <h2 class="page-title">{{ pageTitle }}</h2>
         <p class="page-subtitle">
-          {{ pets.length }} paciente{{ pets.length === 1 ? '' : 's' }} en la clínica
+          @if (livestockMode) {
+            {{ pets.length }} animal{{ pets.length === 1 ? '' : 'es' }} de producción y granja
+          } @else {
+            {{ pets.length }} paciente{{ pets.length === 1 ? '' : 's' }} en la clínica
+          }
         </p>
       </div>
       <div class="toolbar">
@@ -51,12 +60,12 @@ const EMPTY_PET = {
           <app-icon name="search" [size]="16"></app-icon>
           <input
             class="form-input"
-            placeholder="Buscar por nombre, raza o dueño…"
+            [placeholder]="livestockMode ? 'Buscar por nombre, raza o granja…' : 'Buscar por nombre, raza o dueño…'"
             [(ngModel)]="search"
           />
         </div>
         <button type="button" class="btn btn-primary" (click)="openCreate()">
-          <app-icon name="plus" [size]="16"></app-icon> Nueva mascota
+          <app-icon name="plus" [size]="16"></app-icon> {{ livestockMode ? 'Nuevo animal' : 'Nueva mascota' }}
         </button>
       </div>
     </div>
@@ -87,12 +96,16 @@ const EMPTY_PET = {
     <!-- Empty state -->
     <div class="empty-state card" *ngIf="!loading && filteredPets.length === 0">
       <span class="empty-ic">
-        <app-icon name="paw" [size]="26"></app-icon>
+        <app-icon [name]="livestockMode ? 'wheat' : 'paw'" [size]="26"></app-icon>
       </span>
       <h3>Sin resultados</h3>
-      <p>No encontramos mascotas con ese criterio. Registra una nueva para comenzar.</p>
+      <p>
+        {{ livestockMode
+          ? 'No encontramos animales de granja con ese criterio. Registra uno nuevo para comenzar.'
+          : 'No encontramos pacientes con ese criterio. Registra uno nuevo para comenzar.' }}
+      </p>
       <button type="button" class="btn btn-primary" (click)="openCreate()">
-        <app-icon name="plus" [size]="16"></app-icon> Nueva mascota
+        <app-icon name="plus" [size]="16"></app-icon> {{ livestockMode ? 'Nuevo animal' : 'Nueva mascota' }}
       </button>
     </div>
 
@@ -105,7 +118,9 @@ const EMPTY_PET = {
             [alt]="pet.name"
             (error)="onImgError($event)"
           />
-          <span class="badge badge-species">{{ pet.species }}</span>
+          <span class="badge badge-species">
+            {{ pet.species }}<ng-container *ngIf="isLivestock(pet)"> · Zootecnia</ng-container>
+          </span>
           <div class="pet-actions">
             <button
               type="button"
@@ -130,6 +145,10 @@ const EMPTY_PET = {
           <h3>{{ pet.name }}</h3>
           <p class="pet-breed">
             {{ pet.breed || 'Raza no especificada' }} · {{ pet.gender || '—' }}
+          </p>
+          <p class="pet-breed" *ngIf="isLivestock(pet) && (pet.productionType || pet.farmName || pet.recordCode)">
+            <ng-container *ngIf="pet.recordCode">{{ pet.recordCode }} · </ng-container>
+            {{ pet.productionType || 'Producción' }}<ng-container *ngIf="pet.farmName"> · {{ pet.farmName }}</ng-container>
           </p>
 
           <dl class="pet-meta">
@@ -161,7 +180,9 @@ const EMPTY_PET = {
     <!-- Modal Crear / Editar -->
     <app-modal
       *ngIf="editing"
-      [title]="editing === 'new' ? 'Nueva mascota' : 'Editar ' + (petForm.controls.name.value || 'mascota')"
+      [title]="editing === 'new'
+        ? (livestockMode ? 'Nuevo animal de granja' : 'Nueva mascota')
+        : 'Editar ' + (petForm.controls.name.value || (livestockMode ? 'animal' : 'mascota'))"
       (close)="editing = null"
     >
       <form id="pet-form" [formGroup]="petForm" (ngSubmit)="save()" novalidate>
@@ -189,7 +210,12 @@ const EMPTY_PET = {
               [class.is-invalid]="isInvalid('species')"
               [attr.aria-invalid]="isInvalid('species')"
             >
-              <option *ngFor="let s of standardSpecies" [ngValue]="s">{{ s }}</option>
+              <optgroup label="Mascotas" *ngIf="!livestockMode">
+                <option *ngFor="let s of standardSpecies" [ngValue]="s">{{ s }}</option>
+              </optgroup>
+              <optgroup label="Animales de granja">
+                <option *ngFor="let s of livestockSpecies" [ngValue]="s">{{ s }}</option>
+              </optgroup>
             </select>
             <app-field-error [control]="petForm.controls.species" label="La especie"></app-field-error>
           </div>
@@ -212,6 +238,35 @@ const EMPTY_PET = {
               <option value="Hembra">Hembra</option>
             </select>
           </div>
+        </div>
+
+        <div class="field-row" *ngIf="showLivestockFields">
+          <div class="form-group">
+            <label class="form-label" for="pet-record-code">Código / arete</label>
+            <input
+              id="pet-record-code"
+              class="form-input"
+              formControlName="recordCode"
+              placeholder="Ej. VAC-001"
+            />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="pet-production-type">Tipo de producción</label>
+            <select id="pet-production-type" class="form-select" formControlName="productionType">
+              <option value="">Selecciona una opción</option>
+              <option *ngFor="let p of productionTypes" [ngValue]="p">{{ p }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group" *ngIf="showLivestockFields">
+          <label class="form-label" for="pet-farm-name">Finca / granja</label>
+          <input
+            id="pet-farm-name"
+            class="form-input"
+            formControlName="farmName"
+            placeholder="Ej. Granja Santa Rosa"
+          />
         </div>
 
         <div class="field-row">
@@ -255,7 +310,7 @@ const EMPTY_PET = {
             />
           </div>
           <div class="form-group">
-            <label class="form-label" for="pet-owner">Propietario *</label>
+            <label class="form-label" for="pet-owner">{{ livestockMode ? 'Propietario / responsable *' : 'Propietario *' }}</label>
             <select
               id="pet-owner"
               class="form-select"
@@ -315,7 +370,7 @@ const EMPTY_PET = {
     <!-- Dialogo Confirmar Eliminar -->
     <app-confirm
       [open]="!!toDelete"
-      title="Eliminar mascota"
+      [title]="livestockMode ? 'Eliminar animal' : 'Eliminar mascota'"
       [message]="'¿Seguro que deseas eliminar a ' + toDelete?.name + '? Se quitará de la lista de pacientes.'"
       [loading]="deleting"
       (confirm)="remove()"
@@ -327,6 +382,9 @@ export class PetsComponent implements OnInit {
   private petService = inject(PetService);
   private userService = inject(UserService);
   private fb = inject(FormBuilder);
+  private route = inject(ActivatedRoute);
+
+  readonly livestockMode = this.route.snapshot.data['livestock'] === true;
 
   pets: Pet[] = [];
   clients: User[] = [];
@@ -336,6 +394,16 @@ export class PetsComponent implements OnInit {
   search: string = '';
   selectedSpecies: string = 'Todas';
   standardSpecies = ['Perro', 'Gato', 'Ave', 'Conejo', 'Hámster', 'Reptil', 'Pez', 'Otro'];
+  livestockSpecies = [...LIVESTOCK_SPECIES];
+  productionTypes = [...PRODUCTION_TYPES];
+
+  get pageTitle(): string {
+    return this.livestockMode ? 'Zootecnia' : 'Pacientes';
+  }
+
+  get showLivestockFields(): boolean {
+    return this.livestockMode || isLivestockSpecies(this.petForm.controls.species.value);
+  }
 
   editing: 'new' | Pet | null = null;
   saving: boolean = false;
@@ -345,9 +413,12 @@ export class PetsComponent implements OnInit {
     name: ['', [Validators.required, Validators.minLength(2), Validators.maxLength(80)]],
     species: ['Perro', [Validators.required]],
     breed: [''],
+    productionType: [''],
+    farmName: [''],
+    recordCode: [''],
     gender: ['Macho'],
     birthDate: ['', [notFutureDateValidator()]],
-    weightKg: this.fb.control<number | null>(null, [Validators.min(0), Validators.max(500)]),
+    weightKg: this.fb.control<number | null>(null, [Validators.min(0), Validators.max(2000)]),
     color: [''],
     photoUrl: ['', [Validators.pattern(/^https?:\/\/.+/i)]],
     notes: [''],
@@ -372,7 +443,9 @@ export class PetsComponent implements OnInit {
         p.name?.toLowerCase().includes(q) ||
         p.breed?.toLowerCase().includes(q) ||
         p.ownerName?.toLowerCase().includes(q) ||
-        p.species?.toLowerCase().includes(q);
+        p.species?.toLowerCase().includes(q) ||
+        p.farmName?.toLowerCase().includes(q) ||
+        p.recordCode?.toLowerCase().includes(q);
       return matchSpecies && matchQuery;
     });
   }
@@ -387,7 +460,7 @@ export class PetsComponent implements OnInit {
 
   load(): void {
     this.loading = true;
-    this.petService.getAll().subscribe({
+    this.petService.getAll({ livestock: this.livestockMode }).subscribe({
       next: (data) => {
         this.pets = data;
         this.loading = false;
@@ -405,7 +478,10 @@ export class PetsComponent implements OnInit {
   }
 
   openCreate(): void {
-    this.petForm.reset({ ...EMPTY_PET });
+    this.petForm.reset({
+      ...EMPTY_PET,
+      species: this.livestockMode ? 'Vaca' : 'Perro',
+    });
     this.formError = null;
     this.editing = 'new';
   }
@@ -415,6 +491,9 @@ export class PetsComponent implements OnInit {
       name: pet.name,
       species: pet.species,
       breed: pet.breed || '',
+      productionType: pet.productionType || '',
+      farmName: pet.farmName || '',
+      recordCode: pet.recordCode || '',
       gender: pet.gender || 'Macho',
       birthDate: pet.birthDate ? pet.birthDate.slice(0, 10) : '',
       weightKg: pet.weightKg ?? null,
@@ -441,6 +520,9 @@ export class PetsComponent implements OnInit {
       name: raw.name.trim(),
       species: raw.species,
       breed: raw.breed.trim() || null,
+      productionType: raw.productionType.trim() || null,
+      farmName: raw.farmName.trim() || null,
+      recordCode: raw.recordCode.trim() || null,
       gender: raw.gender || null,
       birthDate: raw.birthDate || null,
       weightKg: raw.weightKg != null ? Number(raw.weightKg) : null,
@@ -483,6 +565,10 @@ export class PetsComponent implements OnInit {
         this.toDelete = null;
       }
     });
+  }
+
+  isLivestock(pet: Pet): boolean {
+    return isLivestockSpecies(pet.species);
   }
 
   formatEdad(bDate?: string): string {

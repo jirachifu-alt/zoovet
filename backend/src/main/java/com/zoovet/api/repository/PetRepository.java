@@ -10,5 +10,6 @@ import java.util.List;
 public interface PetRepository extends JpaRepository<Pet, Long> {
     List<Pet> findByOwnerId(Long ownerId);
     List<Pet> findByNameContainingIgnoreCase(String name);
+    boolean existsByNameIgnoreCase(String name);
     long count();
 }

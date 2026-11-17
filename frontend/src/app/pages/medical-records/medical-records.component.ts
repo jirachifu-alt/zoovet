@@ -315,7 +315,7 @@ export class MedicalRecordsComponent implements OnInit {
     diagnosis: [''],
     treatment: [''],
     prescription: [''],
-    recordedWeightKg: this.fb.control<number | null>(null, [Validators.min(0), Validators.max(500)]),
+    recordedWeightKg: this.fb.control<number | null>(null, [Validators.min(0), Validators.max(2000)]),
     notes: ['']
   });
 

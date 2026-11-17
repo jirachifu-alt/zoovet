@@ -4,6 +4,7 @@ import com.zoovet.api.model.*;
 import com.zoovet.api.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -20,13 +21,57 @@ public class DatabaseSeeder implements CommandLineRunner {
     private final MedicalRecordRepository medicalRecordRepository;
     private final VaccineRecordRepository vaccineRecordRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JdbcTemplate jdbcTemplate;
 
     @Override
     public void run(String... args) throws Exception {
-        if (userRepository.count() > 0) {
-            return; // Data already exists
+        ensureSchemaSupportsZootechnicians();
+
+        if (userRepository.count() == 0) {
+            seedBaseData();
         }
 
+        ensureZootechnicianData();
+    }
+
+    /**
+     * Mantiene compatibles las bases de datos creadas antes del módulo de zootecnia.
+     * Hibernate crea las columnas nuevas, pero MySQL no siempre amplía un ENUM existente.
+     */
+    private void ensureSchemaSupportsZootechnicians() {
+        try {
+            jdbcTemplate.execute(
+                    "ALTER TABLE users MODIFY COLUMN role " +
+                    "ENUM('ROLE_ADMIN','ROLE_CLIENTE','ROLE_VETERINARIO','ROLE_ZOOTECNICO') NOT NULL"
+            );
+        } catch (Exception e) {
+            System.out.println(">>> Aviso: no se pudo ampliar el ENUM de roles: " + e.getMessage());
+        }
+
+        ensureColumn("pets", "production_type", "production_type VARCHAR(50) NULL");
+        ensureColumn("pets", "farm_name", "farm_name VARCHAR(120) NULL");
+        ensureColumn("pets", "record_code", "record_code VARCHAR(60) NULL");
+    }
+
+    private void ensureColumn(String table, String column, String definition) {
+        try {
+            Integer count = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM information_schema.columns " +
+                    "WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?",
+                    Integer.class,
+                    table,
+                    column
+            );
+
+            if (count == null || count == 0) {
+                jdbcTemplate.execute("ALTER TABLE " + table + " ADD COLUMN " + definition);
+            }
+        } catch (Exception e) {
+            System.out.println(">>> Aviso: no se pudo verificar/crear " + table + "." + column + ": " + e.getMessage());
+        }
+    }
+
+    private void seedBaseData() {
         System.out.println(">>> Inicializando datos iniciales de ZooVet / VetCare Pro...");
 
         // 1. Usuarios
@@ -249,5 +294,149 @@ public class DatabaseSeeder implements CommandLineRunner {
                 .build());
 
         System.out.println(">>> Base de datos ZooVet inicializada con éxito.");
+    }
+
+    private void ensureZootechnicianData() {
+        ensureUser(
+                "zootecnico@zoovet.com",
+                "zootecnico123",
+                "Ing. Marco Quispe",
+                "+51 955 111 222",
+                "Av. Los Andes 210, Ate",
+                Role.ROLE_ZOOTECNICO
+        );
+
+        ensureUser(
+                "zootecnica@zoovet.com",
+                "zootecnico123",
+                "Ing. Lucía Torres",
+                "+51 955 333 444",
+                "Calle Los Nogales 145, La Molina",
+                Role.ROLE_ZOOTECNICO
+        );
+
+        User farm = ensureUser(
+                "granja@zoovet.com",
+                "granja123",
+                "Granja Santa Rosa",
+                "+51 944 333 444",
+                "Km 18 Carretera Central, Huachipa",
+                Role.ROLE_CLIENTE
+        );
+
+        ensureLivestockPet(
+                "Mora", "Vaca", "Holstein", "Hembra", 520.0,
+                "Blanco y negro", "Leche", "Granja Santa Rosa", "VAC-001",
+                LocalDate.now().minusYears(4),
+                "Vaca productora de leche. Control reproductivo y mastitis al día.",
+                "https://images.unsplash.com/photo-1570042225831-d98fa7577f1e?auto=format&fit=crop&w=400&q=80",
+                farm
+        );
+
+        ensureLivestockPet(
+                "Canela", "Oveja", "Corriedale", "Hembra", 68.0,
+                "Marrón claro", "Lana", "Granja Santa Rosa", "OVI-014",
+                LocalDate.now().minusYears(2),
+                "Oveja de doble propósito. Esquila programada para fin de temporada.",
+                "https://images.unsplash.com/photo-1484557985045-edf25e08da73?auto=format&fit=crop&w=400&q=80",
+                farm
+        );
+
+        ensureLivestockPet(
+                "Nube", "Cabra", "Saanen", "Hembra", 52.0,
+                "Blanca", "Leche", "Granja Santa Rosa", "CAP-007",
+                LocalDate.now().minusYears(3),
+                "Cabra lechera. Requiere control de parasitosis y cascos.",
+                "https://images.pexels.com/photos/34075170/pexels-photo-34075170.jpeg?auto=compress&w=400",
+                farm
+        );
+
+        ensureLivestockPet(
+                "Trufa", "Cerdo", "Landrace", "Macho", 130.0,
+                "Rosado", "Carne", "Granja Santa Rosa", "POR-022",
+                LocalDate.now().minusYears(1),
+                "Cerdo de engorde. Control de peso y vacunación al día.",
+                "https://images.unsplash.com/photo-1516467508483-a7212febe31a?auto=format&fit=crop&w=400&q=80",
+                farm
+        );
+
+        ensureLivestockPet(
+                "Relámpago", "Caballo", "Peruano de Paso", "Macho", 430.0,
+                "Alazán", "Trabajo", "Granja Santa Rosa", "EQU-003",
+                LocalDate.now().minusYears(5),
+                "Caballo de trabajo y exhibición. Revisión podal mensual.",
+                "https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=400&q=80",
+                farm
+        );
+
+        ensureLivestockPet(
+                "Chaska", "Alpaca", "Huacaya", "Hembra", 62.0,
+                "Beige", "Fibra", "Granja Santa Rosa", "ALP-009",
+                LocalDate.now().minusYears(3),
+                "Alpaca de producción de fibra. Esquila y control de ectoparásitos.",
+                "https://images.pexels.com/photos/12164253/pexels-photo-12164253.jpeg?auto=compress&w=400",
+                farm
+        );
+
+        System.out.println(">>> Módulo de zootecnia verificado: usuarios y animales de granja disponibles.");
+    }
+
+    private User ensureUser(
+            String email,
+            String rawPassword,
+            String fullName,
+            String phone,
+            String address,
+            Role role
+    ) {
+        return userRepository.findByEmail(email).orElseGet(() -> userRepository.save(
+                User.builder()
+                        .email(email)
+                        .password(passwordEncoder.encode(rawPassword))
+                        .fullName(fullName)
+                        .phone(phone)
+                        .address(address)
+                        .role(role)
+                        .active(true)
+                        .createdAt(LocalDateTime.now())
+                        .build()
+        ));
+    }
+
+    private void ensureLivestockPet(
+            String name,
+            String species,
+            String breed,
+            String gender,
+            Double weightKg,
+            String color,
+            String productionType,
+            String farmName,
+            String recordCode,
+            LocalDate birthDate,
+            String notes,
+            String photoUrl,
+            User owner
+    ) {
+        if (petRepository.existsByNameIgnoreCase(name)) {
+            return;
+        }
+
+        petRepository.save(Pet.builder()
+                .name(name)
+                .species(species)
+                .breed(breed)
+                .productionType(productionType)
+                .farmName(farmName)
+                .recordCode(recordCode)
+                .gender(gender)
+                .birthDate(birthDate)
+                .weightKg(weightKg)
+                .color(color)
+                .photoUrl(photoUrl)
+                .notes(notes)
+                .owner(owner)
+                .createdAt(LocalDateTime.now())
+                .build());
     }
 }
